@@ -1,13 +1,13 @@
 Symbol,Security,Qty,Type,Open date,Adj cost per share,Adj cost
-034220.KS,LG display,5,Buy,2021-8-20 9:0:0,17.31,86.56
-005930.KS,Samsung Elecronics,1,Buy,2021-8-20 9:0:0,62.49,62.49
-000660.KS,SK Hynix,5,Buy,2021-9-9 9:0:0,88.48,442.39
-000660.KS,SK Hynix,2,Buy,2021-8-20 9:0:0,87.63,175.25
-QQQ,invesco QQQ,1,Buy,2021-9-2 0:0:0,376.85,376.85
-DIA,diamond trust,1,Buy,2021-9-2 9:0:0,354.97,354.97
-PFE,pfizer,1,Buy,2021-9-9 9:0:0,46.27,46.27
-TQQQ,ProShares Trust UltraPro QQQ,1,Buy,2021-10-5 9:0:0,120,120
-SPYG,SPDR Portfolio S&P 500 Growth,1,Buy,2021-10-1 9:0:0,64.02,64.02
-JETS,U.S. Global Jets,3.475437,Buy,2021-10-8 9:0:0,24.02,83.47999674
-TAN,Invesco Solar,1.053508,Buy,2021-10-8 9:0:0,79.24,83.47997392
-FNGG,Direxion Daily Select Large Caps & FANGs Bull 2X S,2,Buy,2021-10-8 9:0:0,26.5,53
+034220.KS,LG display,5,Buy,2021-08-20,17.31,86.56
+005930.KS,Samsung Elecronics,1,Buy,2021-08-20,62.49,62.49
+000660.KS,SK Hynix,5,Buy,2021-09-09,88.48,442.39
+000660.KS,SK Hynix,2,Buy,2021-08-20,87.63,175.25
+QQQ,invesco QQQ,1,Buy,2021-09-02,376.85,376.85
+DIA,diamond trust,1,Buy,2021-09-02,354.97,354.97
+PFE,pfizer,1,Buy,2021-09-09,46.27,46.27
+TQQQ,ProShares Trust UltraPro QQQ,1,Buy,2021-10-05,120,120
+SPYG,SPDR Portfolio S&P 500 Growth,1,Buy,2021-10-01,64.02,64.02
+JETS,U.S. Global Jets,3.475437,Buy,2021-09-02,24.02,83.47999674
+TAN,Invesco Solar,1.053508,Buy,2021-09-02,79.24,83.47997392
+FNGG,Direxion Daily Select Large Caps & FANGs Bull 2X S,2,Buy,2021-09-02,26.5,53

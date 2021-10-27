@@ -2,17 +2,21 @@ import pandas as pd
 import numpy as np
 import datetime
 import plotly.express as px
+import plotly.io as po
 import yfinance as yf
 import pandas_market_calendars as mcal
 from plotly.offline import init_notebook_mode, plot
 init_notebook_mode(connected=True)
 
+
 def create_market_cal(start, end):
-    nyse = mcal.get_calendar('NYSE') # 지정된 시간 프레임 내의 모든 거래일  
-    schedule = nyse.schedule(stocks_start, stocks_end)  # 
+    nyse = mcal.get_calendar('NYSE')
+    schedule = nyse.schedule(stocks_start, stocks_end)
     market_cal = mcal.date_range(schedule, frequency='1D')
+    market_cal = market_cal.tz_localize(None)
     market_cal = [i.replace(hour=0) for i in market_cal]
-    return market_cal 
+    return market_cal
+
 
 def get_data(stocks, start, end):
     def data(ticker):
@@ -22,12 +26,14 @@ def get_data(stocks, start, end):
         return df
     datas = map(data, stocks)
     return(pd.concat(datas, keys=stocks, names=['Ticker', 'Date'], sort=True))
-    
+
+
 def get_benchmark(benchmark, start, end):
     benchmark = get_data(benchmark, start, end)
     benchmark = benchmark.drop(['symbol'], axis=1)
     benchmark.reset_index(inplace=True)
     return benchmark
+
 
 def position_adjust(daily_positions, sale):
     stocks_with_sales = pd.DataFrame()
@@ -42,10 +48,11 @@ def position_adjust(daily_positions, sale):
         stocks_with_sales = stocks_with_sales.append(position[1])
     return stocks_with_sales
 
+
 def portfolio_start_balance(portfolio, start_date):
     positions_before_start = portfolio[portfolio['Open date'] <= start_date]
-    future_sales = portfolio[(portfolio['Open date'] >= start_date) & (portfolio['Type'] == 'Sell.FIFO')]
-    sales = positions_before_start[positions_before_start['Type'] =='Sell.FIFO'].groupby(['Symbol'])['Qty'].sum()
+    future_positions = portfolio[portfolio['Open date'] >= start_date]
+    sales = positions_before_start[positions_before_start['Type'] == 'Sell.FIFO'].groupby(['Symbol'])['Qty'].sum()
     sales = sales.reset_index()
     positions_no_change = positions_before_start[~positions_before_start['Symbol'].isin(sales['Symbol'].unique())]
     adj_positions_df = pd.DataFrame()
@@ -53,9 +60,10 @@ def portfolio_start_balance(portfolio, start_date):
         adj_positions = position_adjust(positions_before_start, sale)
         adj_positions_df = adj_positions_df.append(adj_positions)
     adj_positions_df = adj_positions_df.append(positions_no_change)
-    adj_positions_df = adj_positions_df.append(future_sales)
+    adj_positions_df = adj_positions_df.append(future_positions)
     adj_positions_df = adj_positions_df[adj_positions_df['Qty'] > 0]
     return adj_positions_df
+
 
 def fifo(daily_positions, sales, date):
     sales = sales[sales['Open date'] == date]
@@ -82,6 +90,8 @@ def time_fill(portfolio, market_cal):
         per_day_balance.append(daily_positions)
     return per_day_balance
 
+
+# matches prices of each asset to open date, then adjusts for  cps of dates
 def modified_cost_per_share(portfolio, adj_close, start_date):
     df = pd.merge(portfolio, adj_close, left_on=['Date Snapshot', 'Symbol'],
                   right_on=['Date', 'Ticker'], how='left')
@@ -91,6 +101,7 @@ def modified_cost_per_share(portfolio, adj_close, start_date):
     return df
 
 
+# merge portfolio data with latest benchmark data and create several calcs
 def benchmark_portfolio_calcs(portfolio, benchmark):
     portfolio = pd.merge(portfolio, benchmark, left_on=['Date Snapshot'],
                          right_on=['Date'], how='left')
@@ -112,6 +123,7 @@ def portfolio_end_of_year_stats(portfolio, adj_close_end):
     return portfolio_end_data
 
 
+# Merge the overall dataframe with the adj close start of year dataframe for YTD tracking of tickers.
 def portfolio_start_of_year_stats(portfolio, adj_close_start):
     adj_close_start = adj_close_start[adj_close_start['Date'] == adj_close_start['Date'].min()]
     portfolio_start = pd.merge(portfolio, adj_close_start[['Ticker', 'Close', 'Date']],
@@ -132,10 +144,10 @@ def calc_returns(portfolio):
     portfolio['Ticker Return'] = portfolio['Symbol Adj Close'] / portfolio['Adj cost per share'] - 1
     portfolio['Ticker Share Value'] = portfolio['Qty'] * portfolio['Symbol Adj Close']
     portfolio['Benchmark Share Value'] = portfolio['Equiv Benchmark Shares'] * portfolio['Benchmark Close']
-    portfolio['Abs Value Compare'] = portfolio['Ticker Share Value'] - portfolio['Benchmark Start Date Cost']
-    portfolio['Abs Value Return'] = portfolio['Abs Value Compare']/portfolio['Benchmark Start Date Cost']
     portfolio['Stock Gain / (Loss)'] = portfolio['Ticker Share Value'] - portfolio['Adj cost']
     portfolio['Benchmark Gain / (Loss)'] = portfolio['Benchmark Share Value'] - portfolio['Adj cost']
+    portfolio['Abs Value Compare'] = portfolio['Ticker Share Value'] - portfolio['Benchmark Start Date Cost']
+    portfolio['Abs Value Return'] = portfolio['Abs Value Compare']/portfolio['Benchmark Start Date Cost']
     portfolio['Abs. Return Compare'] = portfolio['Ticker Return'] - portfolio['Benchmark Return']
     return portfolio
 
@@ -150,30 +162,32 @@ def per_day_portfolio_calcs(per_day_holdings, daily_benchmark, daily_adj_close, 
     return returns
 
 
-def line(df, val_1, val_2):
-    grouped_metrics = combined_df.groupby(['Date Snapshot'])[[val_1,val_2]].sum().reset_index()
-    grouped_metrics = pd.melt(grouped_metrics, id_vars=['Date Snapshot'],
-                              value_vars=[val_1, val_2])
-    fig = px.line(grouped_metrics, x="Date Snapshot", y="value", 
-                  color='variable')
-    plot(fig)
-
 def line_facets(df, val_1, val_2):
     grouped_metrics = combined_df.groupby(['Symbol','Date Snapshot'])[[val_1,val_2]].sum().reset_index()
     grouped_metrics = pd.melt(grouped_metrics, id_vars=['Symbol','Date Snapshot'],
                               value_vars=[val_1, val_2])
     fig = px.line(grouped_metrics, x="Date Snapshot", y="value",
                   color='variable', facet_col="Symbol", facet_col_wrap=5)
-    plot(fig)
-    
+    po.write_html(fig, file='line_facets.html')
 
 
-# portfol/io_df = pd.read_csv('stock_transactions.csv',encoding='cp949')
-portfolio_df = pd.read_csv('stock_transactions.csv', parse_dates=['Open date'])
+def line(df, val_1, val_2):
+    grouped_metrics = combined_df.groupby(['Date Snapshot'])[[val_1,val_2]].sum().reset_index()
+    grouped_metrics = pd.melt(grouped_metrics, id_vars=['Date Snapshot'],
+                              value_vars=[val_1, val_2])
+    fig = px.line(grouped_metrics, x="Date Snapshot", y="value", 
+                  color='variable')
+    po.write_html(fig, file='line.html')
+
+
+#portfolio_df = pd.read_csv('/home/miensop51_gmail_com/momo/momo/test_stock_transactions.csv')
+portfolio_df = pd.read_csv('/home/miensop51_gmail_com/momo/momo/stock_transactions.csv')
 portfolio_df['Open date'] = pd.to_datetime(portfolio_df['Open date'])
+
 symbols = portfolio_df.Symbol.unique()
-stocks_start = datetime.datetime(2021, 8, 19,0,0,0)
-stocks_end = datetime.datetime.now()
+stocks_start = datetime.datetime(2021, 8, 19)
+stocks_end = datetime.datetime(2021, 10, 27)
+
 daily_adj_close = get_data(symbols, stocks_start, stocks_end)
 daily_adj_close = daily_adj_close[['Close']].reset_index()
 daily_benchmark = get_benchmark(['SPY'], stocks_start, stocks_end)
@@ -181,6 +195,9 @@ daily_benchmark = daily_benchmark[['Date', 'Close']]
 market_cal = create_market_cal(stocks_start, stocks_end)
 active_portfolio = portfolio_start_balance(portfolio_df, stocks_start)
 positions_per_day = time_fill(active_portfolio, market_cal)
-combined_df = per_day_portfolio_calcs(positions_per_day, daily_benchmark, daily_adj_close, stocks_start)
-line(combined_df, 'Stock Gain / (Loss)', 'Benchmark Gain / (Loss)')
+combined_df = per_day_portfolio_calcs(positions_per_day, daily_benchmark,
+                                      daily_adj_close, stocks_start)
+
 line_facets(combined_df, 'Ticker Return', 'Benchmark Return')
+line(combined_df, 'Stock Gain / (Loss)', 'Benchmark Gain / (Loss)')
+#po.write_html(fig, file='line.html')
